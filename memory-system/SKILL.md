@@ -1,11 +1,11 @@
 ---
 name: memory-system
-description: Use when setting up, updating, or querying an agent memory system stored in memory/. Also trigger proactively at the start or end of any task in a project containing a memory/ directory. Covers team histories, todo tracking, KPI tracking, and any reference to "save/check/update memory," "what do we remember about X," or memory files.
+description: Use when setting up, updating, or querying an agent memory system stored in .memory/. Also trigger on session start/end in any project with a .memory/ directory. Covers team histories, todo tracking, KPI tracking, and any reference to "save/check/update memory," "what do we remember about X," or memory files.
 ---
 
 # Memory System
 
-This skill covers how to interact with the agent memory system — a structured, file-based memory store at `memory/`. Every file follows a strict convention so agents can decide relevance without reading everything.
+This skill covers how to interact with the agent memory system — a structured, file-based memory store at `.memory/`. Every file follows a strict convention so agents can decide relevance without reading everything.
 
 ## The Two Rules
 
@@ -20,55 +20,62 @@ Non-negotiable:
 
 ## Memory Structure
 
+Memory always lives under `.memory/` (dot-prefixed, at the project root). There is no separate "flat" layout — even a project with no real teams uses a single `teams/no-team/` folder, so the structure is always uniform:
+
 ```
-memory/
-  root.md              — identity (static) + state (live)
+.memory/
+  root.md               — identity (static) + state (live)
   teams/
-    <team>/
-      main.md          — team duty + links to history, todos, kpi
-      history.md       — reverse-chronological, 20-entry cap
+    no-team/             — default team; used until real teams exist
+      main.md            — team duty + links to history, todos, kpi
+      history.md         — reverse-chronological, 20-entry cap
       history-archive/
-        YYYY-MM.md      — overflow from history.md
-      todos.md         — [ ]/[~]/[x] priority Title → tasks/<id>.md
-      kpi.md           — fixed schema per KPI
+        YYYY-MM.md        — overflow from history.md
+      todos.md           — [ ]/[~]/[x] priority Title → tasks/<id>.md
+      kpi.md             — fixed schema per KPI
       tasks/
-        <id>.md        — Jira-style task
-  temp/                — short-lived scratch files
-  dependencies.md      — optional, cross-team blockers only
+        <id>.md          — Jira-style task
+    <other-team>/         — added as a sibling folder if/when a real team exists
+      ...same shape as above
+  temp/                  — short-lived scratch files
+  dependencies.md        — optional, cross-team blockers only
 ```
+
+Adding a real team later is just adding a sibling folder under `teams/` — never a restructure. `no-team` stays in place as long as it's used for general/unassigned work.
 
 See `references/templates.md` for exact, copy-pasteable skeletons for every file type. Always use these skeletons verbatim — don't improvise formatting, or the convention drifts across sessions.
 
 ## First-Time Setup
 
-If `memory/` doesn't exist yet:
-1. Create `memory/root.md` using the root template — fill identity fields (name, description, teams, audience) from context, or ask the user if unclear.
+If `.memory/` doesn't exist yet:
+1. Create `.memory/root.md` using the root template — fill identity fields (name, description, teams, audience) from context, or ask the user if unclear.
 2. Set `schema_version: v1.0` and `last_updated` to today.
-3. Create `memory/temp/`.
-4. Don't pre-create team folders — create `teams/<team>/` lazily, the first time that team is actually referenced, using the team templates.
+3. Create `.memory/teams/no-team/` (main.md, history.md, todos.md, kpi.md, tasks/) using the team templates — this is the default team for any project, used for all work until a real team is introduced.
+4. Create `.memory/temp/`.
+5. Only create additional `teams/<team>/` folders when a real, distinct team is actually introduced — don't pre-create teams speculatively.
 
 ## Reading Memory (do this at session start)
 
-1. Start at `memory/root.md` — check `last_updated`, `schema_version`, current phase, active blockers, and the file index.
+1. Start at `.memory/root.md` — check `last_updated`, `schema_version`, current phase, active blockers, and the file index.
 2. Follow the read-me-if lines. Don't open files that don't apply to the current task.
-3. For team-specific work, go to `teams/<team>/main.md` and follow its links.
+3. Go to `teams/<team>/main.md` and follow its links — use `teams/no-team/` if the project has no distinct teams.
 4. For recent context, check `history.md` only (never the archive unless you specifically need older history).
 5. For actionable items, check `todos.md` — inline status/priority means you don't need to open task files just to know what's actionable.
 
 ## Updating Memory (do this after finishing work, even if not asked)
 
 ### After completing work
-1. Update `last_updated` and the live state section in `memory/root.md`.
-2. Add a reverse-chronological entry to the relevant team's `history.md`:
+1. Update `last_updated` and the live state section in `.memory/root.md`.
+2. Add a reverse-chronological entry to the relevant team's `history.md` (use `teams/no-team/history.md` if there's no distinct team):
    `[date] Title — one-line description → tasks/<id>.md`
 3. If `history.md` now exceeds 20 entries, move the oldest overflow to `history-archive/YYYY-MM.md`.
 4. Update `todos.md` — mark completed `[x]`, in-progress `[~]`.
 5. If a KPI changed, update its `current` value and `last_reviewed` in `kpi.md`.
 
 ### Creating a new task
-1. Create `memory/teams/<team>/tasks/<id>.md` using the task template: title, description, acceptance criteria, status, assignee, linked-from.
+1. Create `.memory/teams/<team>/tasks/<id>.md` using the task template: title, description, acceptance criteria, status, assignee, linked-from. Use `teams/no-team/tasks/` if there's no distinct team.
 2. Add an entry to `todos.md`: `[ ] priority Title → tasks/<id>.md`.
-3. If the task is blocked by another team, add `blocked_by: <team>/todos#<id>` to the entry, and note it in `memory/dependencies.md`.
+3. If the task is blocked by another team, add `blocked_by: <team>/todos#<id>` to the entry, and note it in `.memory/dependencies.md`.
 
 ## Temp Files
 
@@ -83,6 +90,7 @@ If `memory/` doesn't exist yet:
 - **Putting task-level detail in root.md** — root.md is identity + state only. Task detail goes in `tasks/`, team history goes in `teams/<team>/history.md`.
 - **Stale KPI values** — after any measurable work, update `current` and `last_reviewed` in `kpi.md`.
 - **Freeform formatting** — always use `references/templates.md` skeletons instead of writing entries from memory of the convention.
+- **Skipping the `no-team` default** — don't invent a flat, team-less layout for simple projects. Always use `teams/no-team/` so the structure stays identical whether a project has zero teams or ten.
 
 ## Reference files
 
